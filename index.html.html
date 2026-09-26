@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RecrutPro — Gestion des recrutements</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #3b82f6;
+    --primary-dark: #1e3a8a;
+    --primary-hover: #2563eb;
+  }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f4f6fa;
+    color: #1e293b;
+    line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  header .brand { display: flex; align-items: center; gap: 0.75rem; }
+  header .brand img {
+    height: 36px; width: 36px; object-fit: contain;
+    border-radius: 6px; background: white;
+  }
+  header h1 { font-size: 1.4rem; }
+  nav button {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    transition: 0.2s;
+    font-family: inherit;
+  }
+  nav button:hover, nav button.active { background: white; color: var(--primary-dark); }
+  main { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+  .card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    margin-bottom: 1rem;
+  }
+  .card h3 { color: var(--primary-dark); margin-bottom: 0.5rem; }
+  .meta { color: #64748b; font-size: 0.9rem; margin-bottom: 0.8rem; }
+  .btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: 0.2s;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--primary-hover); }
+  .btn.secondary { background: #64748b; }
+  .btn.secondary:hover { background: #475569; }
+  .btn.danger { background: #dc2626; }
+  .btn.danger:hover { background: #b91c1c; }
+  .btn.success { background: #16a34a; }
+  .btn.success:hover { background: #15803d; }
+  .btn.warning { background: #d97706; }
+  .btn.warning:hover { background: #b45309; }
+  .btn.small { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+  input, textarea, select {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    margin-bottom: 0.8rem;
+    font-family: inherit;
+    background: white;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  label { font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.3rem; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge.received { background: #dbeafe; color: #1e40af; }
+  .badge.review { background: #fef3c7; color: #92400e; }
+  .badge.interview { background: #e0e7ff; color: #3730a3; }
+  .badge.accepted { background: #dcfce7; color: #166534; }
+  .badge.rejected { background: #fee2e2; color: #991b1b; }
+  .hidden { display: none !important; }
+  .doc-link {
+    display: inline-block;
+    margin-right: 0.5rem;
+    margin-top: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--primary);
+    text-decoration: none;
+  }
+  .doc-link:hover { text-decoration: underline; }
+  .empty { text-align: center; color: #94a3b8; padding: 2rem; }
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: #16a34a; color: white;
+    padding: 0.8rem 1.2rem; border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0; transform: translateY(20px);
+    transition: 0.3s; z-index: 999;
+    max-width: 320px;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: #dc2626; }
+  h2 { color: var(--primary-dark); margin-bottom: 1rem; }
+  .section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  hr { margin: 1rem 0; border: none; border-top: 1px solid #e2e8f0; }
+  .tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1.2rem;
+    flex-wrap: wrap;
+  }
+  .tabs button {
+    background: #e2e8f0;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: #475569;
+  }
+  .tabs button.active {
+    background: var(--primary);
+    color: white;
+  }
+  .history-item {
+    border-left: 3px solid var(--primary);
+    padding: 0.6rem 0.9rem;
+    margin-bottom: 0.6rem;
+    background: #f8fafc;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  .history-item .time { color: #94a3b8; font-size: 0.8rem; }
+  .welcome-banner {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    color: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+  .welcome-banner h2 { color: white; margin-bottom: 0.4rem; }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+  .modal {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 560px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  }
+  .modal h3 { margin-bottom: 1rem; color: var(--primary-dark); }
+  .color-preview {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    border: 2px solid #e2e8f0;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+  }
+  .filters {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .filters input, .filters select {
+    width: auto;
+    margin: 0;
+    min-width: 140px;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
+  }
+  .stat-card {
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 0.9rem;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 1.6rem; font-weight: 700; color: var(--primary-dark); }
+  .stat-card .label { font-size: 0.8rem; color: #64748b; }
+  .notes-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+  }
+  .loading { text-align: center; padding: 2rem; color: #64748b; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img id="header-logo" src="" alt="" class="hidden">
+    <h1 id="header-title">💼 RecrutPro</h1>
+  </div>
+  <nav>
+    <button id="nav-public" class="active" onclick="showView('public')">Offres publiques</button>
+    <button id="nav-admin" onclick="showView('admin')">🔒 Back-office RH</button>
+  </nav>
+</header>
+
+<main>
+
+  <section id="view-public">
+    <div id="welcome-banner" class="welcome-banner hidden">
+      <h2 id="welcome-title"></h2>
+      <p id="welcome-text"></p>
+    </div>
+    <div class="section-title">
+      <h2>Offres d'emploi ouvertes</h2>
+    </div>
+    <div id="public-offers"><div class="loading">Chargement des offres…</div></div>
+  </section>
+
+  <section id="view-apply" class="hidden">
+    <div class="card">
+      <h2 id="apply-title">Postuler</h2>
+      <p class="meta" id="apply-meta"></p>
+      <button class="btn secondary small" onclick="showView('public')">← Retour aux offres</button>
+      <hr>
+      <form id="apply-form" onsubmit="submitApplication(event)">
+        <div class="row">
+          <div>
+            <label>Nom complet *</label>
+            <input type="text" id="app-name" required>
+          </div>
+          <div>
+            <label>Email *</label>
+            <input type="email" id="app-email" required>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Téléphone</label>
+            <input type="tel" id="app-phone">
+          </div>
+          <div>
+            <label>Poste visé</label>
+            <input type="text" id="app-position" readonly>
+          </div>
+        </div>
+        <label>Message / Lettre de motivation</label>
+        <textarea id="app-message" rows="4" placeholder="Présentez-vous brièvement..."></textarea>
+
+        <label>📎 Documents (CV, lettre, diplômes…) — PDF, DOCX, images, max 2 Mo</label>
+        <input type="file" id="app-files" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+        <small style="color:#64748b; display:block; margin-bottom:1rem;">
+          Formats acceptés : PDF, DOC, DOCX, JPG, PNG — Taille max : 2 Mo par fichier
+        </small>
+
+        <label style="display:flex; align-items:center; gap:0.5rem; font-weight:normal; margin-bottom:1rem; cursor:pointer;">
+          <input type="checkbox" id="app-consent" required style="width:auto; margin:0;">
+          J'accepte que mes données soient traitées dans le cadre de ma candidature (RGPD). *
+        </label>
+
+        <button type="submit" class="btn success" id="btn-submit-app">Envoyer ma candidature</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="view-admin" class="hidden">
+    <div id="admin-login">
+      <div class="card" style="max-width:400px; margin:2rem auto;">
+        <h3>🔒 Accès RH</h3>
+        <p class="meta">Identifiants démo : <strong>admin</strong> / <strong>admin</strong></p>
+        <label>Utilisateur</label>
+        <input type="text" id="login-user" placeholder="admin">
+        <label>Mot de passe</label>
+        <input type="password" id="login-pass" placeholder="admin">
+        <button class="btn" onclick="adminLogin()" style="width:100%">Se connecter</button>
+      </div>
+    </div>
+
+    <div id="admin-panel" class="hidden">
+      <div class="section-title">
+        <h2>Tableau de bord RH</h2>
+        <button class="btn secondary small" onclick="adminLogout()">Déconnexion</button>
+      </div>
+
+      <div class="stats" id="admin-stats"></div>
+
+      <div class="tabs">
+        <button class="active" data-tab="offers" onclick="switchAdminTab('offers')">📋 Offres</button>
+        <button data-tab="apps" onclick="switchAdminTab('apps')">📥 Candidatures</button>
+        <button data-tab="history" onclick="switchAdminTab('history')">📜 Historique</button>
+        <button data-tab="settings" onclick="switchAdminTab('settings')">⚙️ Personnalisation</button>
+      </div>
+
+      <div id="tab-offers">
+        <div class="card">
+          <h3 id="offer-form-title">➕ Publier une nouvelle offre</h3>
+          <form id="offer-form" onsubmit="saveOffer(event)">
+            <input type="hidden" id="offer-edit-id" value="">
+            <div class="row">
+              <div>
+                <label>Titre du poste *</label>
+                <input type="text" id="offer-title" required>
+              </div>
+              <div>
+                <label>Lieu</label>
+                <input type="text" id="offer-location" placeholder="Paris / Télétravail">
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label>Type de contrat</label>
+                <select id="offer-type">
+                  <option>CDI</option>
+                  <option>CDD</option>
+                  <option>Stage</option>
+                  <option>Alternance</option>
+                  <option>Freelance</option>
+                </select>
+              </div>
+              <div>
+                <label>Salaire (optionnel)</label>
+                <input type="text" id="offer-salary" placeholder="45-55k€">
+              </div>
+            </div>
+            <label>Description *</label>
+            <textarea id="offer-desc" rows="4" required></textarea>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="submit" class="btn" id="offer-submit-btn">Publier l'offre</button>
+              <button type="button" class="btn secondary hidden" id="offer-cancel-btn" onclick="cancelEditOffer()">Annuler</button>
+            </div>
+          </form>
+        </div>
+        <div class="card">
+          <h3>📋 Offres publiées</h3>
+          <div id="admin-offers"></div>
+        </div>
+      </div>
+
+      <div id="tab-apps" class="hidden">
+        <div class="card">
+          <h3>📥 Candidatures reçues</h3>
+          <div class="filters">
+            <input type="text" id="filter-app-search" placeholder="Rechercher nom, email..." oninput="renderAdminApps()">
+            <select id="filter-app-status" onchange="renderAdminApps()">
+              <option value="">Tous les statuts</option>
+              <option value="received">Reçue</option>
+              <option value="review">En cours d'examen</option>
+              <option value="interview">Entretien</option>
+              <option value="accepted">Acceptée</option>
+              <option value="rejected">Refusée</option>
+            </select>
+            <select id="filter-app-offer" onchange="renderAdminApps()">
+              <option value="">Tous les postes</option>
+            </select>
+          </div>
+          <div id="admin-applications"></div>
+        </div>
+      </div>
+
+      <div id="tab-history" class="hidden">
+        <div class="card">
+          <div class="section-title">
+            <h3>📜 Journal d'activité</h3>
+            <button class="btn secondary small" onclick="clearHistory()">Vider l'historique</button>
+          </div>
+          <div id="admin-history"></div>
+        </div>
+      </div>
+
+      <div id="tab-settings" class="hidden">
+        <div class="card">
+          <h3>⚙️ Personnalisation de l'espace</h3>
+          <form onsubmit="saveSettings(event)">
+            <label>Nom de l'entreprise / Espace</label>
+            <input type="text" id="set-company" placeholder="Ex: Acme Corp">
+
+            <label>Message d'accueil (affiché sur la page publique)</label>
+            <textarea id="set-welcome" rows="3" placeholder="Bienvenue sur notre espace de recrutement..."></textarea>
+
+            <label>Couleur principale</label>
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.8rem;">
+              <input type="color" id="set-color" value="#3b82f6" style="width:60px; height:40px; padding:2px; margin:0;">
+              <span class="color-preview" id="color-preview"></span>
+              <span id="color-hex" style="font-size:0.9rem; color:#64748b;"></span>
+            </div>
+
+            <label>Logo (PNG/JPG, max 500 Ko)</label>
+            <input type="file" id="set-logo" accept=".png,.jpg,.jpeg,.svg" onchange="previewLogo(event)">
+            <div id="logo-preview-box" class="hidden" style="margin-bottom:1rem;">
+              <img id="logo-preview" style="max-height:60px; max-width:160px; border-radius:6px; border:1px solid #e2e8f0;">
+              <button type="button" class="btn danger small" style="margin-left:0.5rem;" onclick="removeLogo()">Supprimer le logo</button>
+            </div>
+
+            <button type="submit" class="btn success">Enregistrer la personnalisation</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="modal-app" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>📝 Notes RH — <span id="modal-app-name"></span></h3>
+    <p class="meta" id="modal-app-meta"></p>
+    <label>Notes internes (visibles uniquement en back-office)</label>
+    <textarea id="modal-app-notes" rows="5" placeholder="Ajoutez des notes sur ce candidat..."></textarea>
+    <div style="display:flex; gap:0.5rem; margin-top:0.8rem; flex-wrap:wrap;">
+      <button class="btn success" onclick="saveAppNotes()">Enregistrer</button>
+      <button class="btn secondary" onclick="closeModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============ SUPABASE ============ */
+const SUPABASE_URL = 'https://ofpdfbmmwhitkwblkmas.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_G1byV9jBrUzEFpSvUBFtIQ_dM5L7xzf';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============ AUTH ADMIN (simple) ============ */
+const AUTH_KEY = 'rp_auth';
+function isLoggedIn() { return localStorage.getItem(AUTH_KEY) === '1'; }
+function setLoggedIn(v) { localStorage.setItem(AUTH_KEY, v ? '1' : '0'); }
+
+/* ============ TOAST ============ */
+let toastTimer = null;
+function toast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 3200);
+}
+
+/* ============ HISTORIQUE ============ */
+async function logAction(action, details = '') {
+  try {
+    await supabase.from('history').insert({ action, details });
+  } catch (e) { console.warn('log error', e); }
+}
+
+/* ============ NAVIGATION ============ */
+function showView(view) {
+  ['public','apply','admin'].forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById('view-' + view);
+  if (target) target.classList.remove('hidden');
+
+  document.getElementById('nav-public').classList.toggle('active', view === 'public' || view === 'apply');
+  document.getElementById('nav-admin').classList.toggle('active', view === 'admin');
+
+  applyBranding();
+  if (view === 'public') renderPublicOffers();
+  if (view === 'admin') {
+    if (isLoggedIn()) {
+      document.getElementById('admin-login').classList.add('hidden');
+      document.getElementById('admin-panel').classList.remove('hidden');
+      renderAdminStats();
+      switchAdminTab(currentAdminTab || 'offers');
+    } else {
+      document.getElementById('admin-login').classList.remove('hidden');
+      document.getElementById('admin-panel').classList.add('hidden');
+    }
+  }
+}
+
+let currentAdminTab = 'offers';
+function switchAdminTab(tab) {
+  currentAdminTab = tab;
+  document.querySelectorAll('.tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  ['offers','apps','history','settings'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'offers') renderAdminOffers();
+  if (tab === 'apps') { populateOfferFilter(); renderAdminApps(); }
+  if (tab === 'history') renderHistory();
+  if (tab === 'settings') loadSettingsForm();
+}
+
+/* ============ BRANDING ============ */
+async function applyBranding() {
+  try {
+    const { data } = await supabase.from('settings').select('*').eq('id', 1).single();
+    if (!data) return;
+    const color = data.color || '#3b82f6';
+    document.documentElement.style.setProperty('--primary', color);
+    document.documentElement.style.setProperty('--primary-dark', shadeColor(color, -35));
+    document.documentElement.style.setProperty('--primary-hover', shadeColor(color, -15));
+
+    document.getElementById('header-title').textContent = data.company ? '💼 ' + data.company : '💼 RecrutPro';
+
+    const logoImg = document.getElementById('header-logo');
+    if (data.logo) {
+      logoImg.src = data.logo;
+      logoImg.classList.remove('hidden');
+    } else {
+      logoImg.classList.add('hidden');
+    }
+
+    const banner = document.getElementById('welcome-banner');
+    if (data.welcome && data.welcome.trim()) {
+      banner.classList.remove('hidden');
+      document.getElementById('welcome-title').textContent = data.company || 'Bienvenue';
+      document.getElementById('welcome-text').textContent = data.welcome;
+    } else {
+      banner.classList.add('hidden');
+    }
+  } catch (e) { console.warn(e); }
+}
+
+function shadeColor(color, percent) {
+  const num = parseInt(color.replace('#',''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+  const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amt));
+  const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+  return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+}
+
+async function loadSettingsForm() {
+  try {
+    const { data } = await supabase.from('settings').select('*').eq('id', 1).single();
+    if (!data) return;
+    document.getElementById('set-company').value = data.company || '';
+    document.getElementById('set-welcome').value = data.welcome || '';
+    document.getElementById('set-color').value = data.color || '#3b82f6';
+    updateColorPreview();
+    if (data.logo) {
+      document.getElementById('logo-preview').src = data.logo;
+      document.getElementById('logo-preview-box').classList.remove('hidden');
+    } else {
+      document.getElementById('logo-preview-box').classList.add('hidden');
+    }
+  } catch (e) { console.warn(e); }
+}
+
+document.getElementById('set-color')?.addEventListener('input', updateColorPreview);
+function updateColorPreview() {
+  const c = document.getElementById('set-color').value;
+  document.getElementById('color-preview').style.background = c;
+  document.getElementById('color-hex').textContent = c;
+}
+
+let pendingLogo = null;
+function previewLogo(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 500 * 1024) {
+    toast('Logo trop volumineux (max 500 Ko)', true);
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingLogo = reader.result;
+    document.getElementById('logo-preview').src = pendingLogo;
+    document.getElementById('logo-preview-box').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+async function removeLogo() {
+  pendingLogo = null;
+  document.getElementById('set-logo').value = '';
+  document.getElementById('logo-preview-box').classList.add('hidden');
+  await supabase.from('settings').update({ logo: null }).eq('id', 1);
+  applyBranding();
+  toast('Logo supprimé');
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  const payload = {
+    company: document.getElementById('set-company').value.trim() || 'RecrutPro',
+    welcome: document.getElementById('set-welcome').value.trim(),
+    color: document.getElementById('set-color').value
+  };
+  if (pendingLogo !== null) payload.logo = pendingLogo;
+
+  const { error } = await supabase.from('settings').upsert({ id: 1, ...payload });
+  if (error) { toast('Erreur : ' + error.message, true); return; }
+  pendingLogo = null;
+  applyBranding();
+  logAction('Personnalisation mise à jour', payload.company);
+  toast('✅ Personnalisation enregistrée');
+}
+
+/* ============ VUE PUBLIQUE ============ */
+async function renderPublicOffers() {
+  const container = document.getElementById('public-offers');
+  container.innerHTML = '<div class="loading">Chargement des offres…</div>';
+  try {
+    const { data: offers, error } = await supabase.from('offers').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    if (!offers || !offers.length) {
+      container.innerHTML = '<div class="card empty">Aucune offre disponible pour le moment.</div>';
+      return;
+    }
+    container.innerHTML = offers.map(o => `
+      <div class="card">
+        <h3>${escapeHtml(o.title)}</h3>
+        <p class="meta">📍 ${escapeHtml(o.location || 'Non précisé')} • 📄 ${escapeHtml(o.type || '')}${o.salary ? ' • 💰 ' + escapeHtml(o.salary) : ''}</p>
+        <p>${escapeHtml(o.description || '')}</p>
+        <button class="btn" style="margin-top:1rem" onclick="openApply(${o.id})">Postuler</button>
+      </div>
+    `).join('');
+  } catch (e) {
+    container.innerHTML = '<div class="card empty">Erreur de chargement. Réessayez.</div>';
+    console.error(e);
+  }
+}
+
+/* ============ CANDIDATURE ============ */
+let currentOfferId = null;
+async function openApply(id) {
+  try {
+    const { data: offer } = await supabase.from('offers').select('*').eq('id', id).single();
+    if (!offer) { toast('Offre introuvable', true); return; }
+    currentOfferId = id;
+    document.getElementById('apply-title').textContent = 'Postuler : ' + offer.title;
+    document.getElementById('apply-meta').textContent = (offer.location || '') + ' • ' + (offer.type || '');
+    document.getElementById('app-position').value = offer.title;
+    showView('apply');
+  } catch (e) {
+    toast('Erreur', true);
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(new Error('Erreur de lecture'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function submitApplication(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-submit-app');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours…';
+
+  const name = document.getElementById('app-name').value.trim();
+  const email = document.getElementById('app-email').value.trim();
+  if (!name || !email) {
+    toast('Nom et email obligatoires', true);
+    btn.disabled = false;
+    btn.textContent = 'Envoyer ma candidature';
+    return;
+  }
+
+  const files = document.getElementById('app-files').files;
+  const docs = [];
+  const MAX_SIZE = 2 * 1024 * 1024;
+
+  try {
+    for (const f of files) {
+      if (f.size > MAX_SIZE) {
+        toast('Fichier trop volumineux : ' + f.name + ' (max 2 Mo)', true);
+        btn.disabled = false;
+        btn.textContent = 'Envoyer ma candidature';
+        return;
+      }
+      docs.push({
+        name: f.name,
+        type: f.type,
+        size: f.size,
+        data: await fileToBase64(f)
+      });
+    }
+
+    const { error } = await supabase.from('applications').insert({
+      offer_id: currentOfferId,
+      offer_title: document.getElementById('app-position').value,
+      name,
+      email,
+      phone: document.getElementById('app-phone').value.trim(),
+      message: document.getElementById('app-message').value.trim(),
+      documents: docs,
+      status: 'received'
+    });
+
+    if (error) throw error;
+
+    await logAction('Nouvelle candidature', `${name} → ${document.getElementById('app-position').value}`);
+    document.getElementById('apply-form').reset();
+    toast('✅ Candidature envoyée avec succès !');
+    showView('public');
+  } catch (err) {
+    console.error(err);
+    toast('Erreur lors de l\'envoi : ' + (err.message || 'réessayez'), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Envoyer ma candidature';
+  }
+}
+
+/* ============ ADMIN ============ */
+function adminLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value.trim();
+  if (u === 'admin' && p === 'admin') {
+    setLoggedIn(true);
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    showView('admin');
+    toast('Connecté en tant qu\'admin');
+  } else {
+    toast('Identifiants incorrects (admin / admin)', true);
+  }
+}
+
+function adminLogout() {
+  setLoggedIn(false);
+  showView('admin');
+}
+
+async function renderAdminStats() {
+  try {
+    const [{ count: offersCount }, { data: apps }] = await Promise.all([
+      supabase.from('offers').select('*', { count: 'exact', head: true }),
+      supabase.from('applications').select('status')
+    ]);
+    const byStatus = {};
+    (apps || []).forEach(a => { byStatus[a.status] = (byStatus[a.status] || 0) + 1; });
+
+    document.getElementById('admin-stats').innerHTML = `
+      <div class="stat-card"><div class="num">${offersCount || 0}</div><div class="label">Offres</div></div>
+      <div class="stat-card"><div class="num">${(apps || []).length}</div><div class="label">Candidatures</div></div>
+      <div class="stat-card"><div class="num">${byStatus.received || 0}</div><div class="label">Nouvelles</div></div>
+      <div class="stat-card"><div class="num">${byStatus.interview || 0}</div><div class="label">Entretiens</div></div>
+      <div class="stat-card"><div class="num">${byStatus.accepted || 0}</div><div class="label">Acceptées</div></div>
+    `;
+  } catch (e) { console.warn(e); }
+}
+
+/* ---- OFFRES ---- */
+async function saveOffer(e) {
+  e.preventDefault();
+  const title = document.getElementById('offer-title').value.trim();
+  const desc = document.getElementById('offer-desc').value.trim();
+  if (!title || !desc) { toast('Titre et description obligatoires', true); return; }
+
+  const editId = document.getElementById('offer-edit-id').value;
+  const payload = {
+    title,
+    location: document.getElementById('offer-location').value.trim(),
+    type: document.getElementById('offer-type').value,
+    salary: document.getElementById('offer-salary').value.trim(),
+    description: desc
+  };
+
+  try {
+    if (editId) {
+      payload.updated_at = new Date().toISOString();
+      const { error } = await supabase.from('offers').update(payload).eq('id', editId);
+      if (error) throw error;
+      logAction('Offre modifiée', title);
+      toast('✅ Offre mise à jour');
+    } else {
+      const { error } = await supabase.from('offers').insert(payload);
+      if (error) throw error;
+      logAction('Offre publiée', title);
+      toast('✅ Offre publiée !');
+    }
+    cancelEditOffer();
+    renderAdminOffers();
+    renderAdminStats();
+  } catch (err) {
+    toast('Erreur : ' + err.message, true);
+  }
+}
+
+async function editOffer(id) {
+  const { data: o } = await supabase.from('offers').select('*').eq('id', id).single();
+  if (!o) return;
+  document.getElementById('offer-edit-id').value = o.id;
+  document.getElementById('offer-title').value = o.title;
+  document.getElementById('offer-location').value = o.location || '';
+  document.getElementById('offer-type').value = o.type || 'CDI';
+  document.getElementById('offer-salary').value = o.salary || '';
+  document.getElementById('offer-desc').value = o.description || '';
+  document.getElementById('offer-form-title').textContent = '✏️ Modifier l\'offre';
+  document.getElementById('offer-submit-btn').textContent = 'Enregistrer les modifications';
+  document.getElementById('offer-cancel-btn').classList.remove('hidden');
+  document.getElementById('offer-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelEditOffer() {
+  document.getElementById('offer-form').reset();
+  document.getElementById('offer-edit-id').value = '';
+  document.getElementById('offer-form-title').textContent = '➕ Publier une nouvelle offre';
+  document.getElementById('offer-submit-btn').textContent = 'Publier l\'offre';
+  document.getElementById('offer-cancel-btn').classList.add('hidden');
+}
+
+async function deleteOffer(id) {
+  if (!confirm('Supprimer cette offre ?')) return;
+  const { data: o } = await supabase.from('offers').select('title').eq('id', id).single();
+  const { error } = await supabase.from('offers').delete().eq('id', id);
+  if (error) { toast('Erreur', true); return; }
+  if (o) logAction('Offre supprimée', o.title);
+  renderAdminOffers();
+  renderAdminStats();
+  toast('Offre supprimée');
+}
+
+async function renderAdminOffers() {
+  const box = document.getElementById('admin-offers');
+  box.innerHTML = '<div class="loading">Chargement…</div>';
+  try {
+    const { data: offers } = await supabase.from('offers').select('*').order('created_at', { ascending: false });
+    if (!offers || !offers.length) {
+      box.innerHTML = '<div class="empty">Aucune offre publiée.</div>';
+      return;
+    }
+    box.innerHTML = offers.map(o => `
+      <div style="border-bottom:1px solid #e2e8f0; padding:0.9rem 0;">
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:0.5rem; flex-wrap:wrap;">
+          <div style="flex:1; min-width:200px;">
+            <strong>${escapeHtml(o.title)}</strong>
+            <span class="meta"> — ${escapeHtml(o.location || 'Lieu non précisé')} • ${escapeHtml(o.type || '')}${o.salary ? ' • ' + escapeHtml(o.salary) : ''}</span>
+            <div class="meta" style="margin-top:0.3rem">${escapeHtml((o.description || '').substring(0, 140))}${(o.description || '').length > 140 ? '…' : ''}</div>
+            <div class="meta" style="font-size:0.8rem;">
+              Créée le ${new Date(o.created_at).toLocaleDateString('fr-FR')}
+              ${o.updated_at ? ' • Modifiée le ' + new Date(o.updated_at).toLocaleDateString('fr-FR') : ''}
+            </div>
+          </div>
+          <div style="display:flex; gap:0.4rem;">
+            <button class="btn warning small" onclick="editOffer(${o.id})">Modifier</button>
+            <button class="btn danger small" onclick="deleteOffer(${o.id})">Supprimer</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="empty">Erreur de chargement</div>';
+  }
+}
+
+/* ---- CANDIDATURES ---- */
+async function populateOfferFilter() {
+  const { data: apps } = await supabase.from('applications').select('offer_title');
+  const titles = [...new Set((apps || []).map(a => a.offer_title).filter(Boolean))];
+  const sel = document.getElementById('filter-app-offer');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Tous les postes</option>' +
+    titles.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  sel.value = current;
+}
+
+async function updateStatus(appId, status) {
+  const { data: a } = await supabase.from('applications').select('name, status').eq('id', appId).single();
+  const { error } = await supabase.from('applications').update({ status }).eq('id', appId);
+  if (error) { toast('Erreur', true); return; }
+  if (a) logAction('Statut modifié', `${a.name} : ${STATUS_LABELS[a.status] || a.status} → ${STATUS_LABELS[status]}`);
+  toast('Statut mis à jour : ' + STATUS_LABELS[status]);
+  renderAdminApps();
+  renderAdminStats();
+}
+
+async function deleteApplication(id) {
+  if (!confirm('Supprimer cette candidature ?')) return;
+  const { data: a } = await supabase.from('applications').select('name, offer_title').eq('id', id).single();
+  const { error } = await supabase.from('applications').delete().eq('id', id);
+  if (error) { toast('Erreur', true); return; }
+  if (a) logAction('Candidature supprimée', `${a.name} (${a.offer_title})`);
+  renderAdminApps();
+  renderAdminStats();
+  toast('Candidature supprimée');
+}
+
+let currentNotesAppId = null;
+async function openNotes(appId) {
+  const { data: a } = await supabase.from('applications').select('*').eq('id', appId).single();
+  if (!a) return;
+  currentNotesAppId = appId;
+  document.getElementById('modal-app-name').textContent = a.name;
+  document.getElementById('modal-app-meta').textContent = a.offer_title + ' • ' + a.email;
+  document.getElementById('modal-app-notes').value = a.notes || '';
+  document.getElementById('modal-app').classList.remove('hidden');
+}
+
+async function saveAppNotes() {
+  const notes = document.getElementById('modal-app-notes').value.trim();
+  const { error } = await supabase.from('applications').update({ notes }).eq('id', currentNotesAppId);
+  if (error) { toast('Erreur', true); return; }
+  const { data: a } = await supabase.from('applications').select('name').eq('id', currentNotesAppId).single();
+  if (a) logAction('Notes mises à jour', a.name);
+  toast('Notes enregistrées');
+  renderAdminApps();
+  closeModal();
+}
+
+function closeModal() {
+  document.getElementById('modal-app').classList.add('hidden');
+  currentNotesAppId = null;
+}
+
+const STATUS_LABELS = {
+  received: 'Reçue',
+  review: "En cours d'examen",
+  interview: 'Entretien',
+  accepted: 'Acceptée',
+  rejected: 'Refusée'
+};
+
+async function renderAdminApps() {
+  const box = document.getElementById('admin-applications');
+  box.innerHTML = '<div class="loading">Chargement…</div>';
+  try {
+    let query = supabase.from('applications').select('*').order('created_at', { ascending: false });
+    const { data: apps, error } = await query;
+    if (error) throw error;
+
+    let filtered = apps || [];
+    const search = (document.getElementById('filter-app-search')?.value || '').toLowerCase();
+    const status = document.getElementById('filter-app-status')?.value || '';
+    const offer = document.getElementById('filter-app-offer')?.value || '';
+
+    if (search) {
+      filtered = filtered.filter(a =>
+        (a.name || '').toLowerCase().includes(search) ||
+        (a.email || '').toLowerCase().includes(search) ||
+        (a.phone || '').toLowerCase().includes(search)
+      );
+    }
+    if (status) filtered = filtered.filter(a => a.status === status);
+    if (offer) filtered = filtered.filter(a => a.offer_title === offer);
+
+    if (!filtered.length) {
+      box.innerHTML = '<div class="empty">Aucune candidature trouvée.</div>';
+      return;
+    }
+
+    box.innerHTML = filtered.map(a => {
+      const docs = a.documents || [];
+      const docsHtml = docs.length
+        ? `<div style="margin:0.5rem 0;">
+            <strong style="font-size:0.85rem;">📎 Documents (${docs.length}) :</strong><br>
+            ${docs.map(d =>
+              `<a class="doc-link" href="${d.data}" download="${escapeHtml(d.name)}">📄 ${escapeHtml(d.name)} (${((d.size||0)/1024).toFixed(1)} Ko)</a>`
+            ).join('')}
+          </div>`
+        : '<div class="meta">Aucun document joint.</div>';
+
+      const notesHtml = a.notes
+        ? `<div class="notes-box"><strong>Notes RH :</strong> ${escapeHtml(a.notes)}</div>`
+        : '';
+
+      return `
+      <div style="border:1px solid #e2e8f0; border-radius:8px; padding:1rem; margin-bottom:0.8rem;">
+        <div style="display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:0.5rem;">
+          <div style="flex:1; min-width:200px;">
+            <strong>${escapeHtml(a.name)}</strong> — <span style="color:var(--primary)">${escapeHtml(a.offer_title || '')}</span>
+            <div class="meta">
+              ✉️ ${escapeHtml(a.email)}${a.phone ? ' • 📞 ' + escapeHtml(a.phone) : ''}
+              • 📅 ${new Date(a.created_at).toLocaleDateString('fr-FR')}
+            </div>
+          </div>
+          <span class="badge ${a.status}">${STATUS_LABELS[a.status] || a.status}</span>
+        </div>
+        ${a.message ? `<p style="margin:0.5rem 0; font-size:0.9rem; color:#475569;">${escapeHtml(a.message)}</p>` : ''}
+        ${notesHtml}
+        ${docsHtml}
+        <div style="margin-top:0.7rem; display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;">
+          <select onchange="updateStatus(${a.id}, this.value)" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.85rem;">
+            ${Object.entries(STATUS_LABELS).map(([k,v]) =>
+              `<option value="${k}" ${a.status===k?'selected':''}>${v}</option>`).join('')}
+          </select>
+          <button class="btn secondary small" onclick="openNotes(${a.id})">📝 Notes</button>
+          <button class="btn danger small" onclick="deleteApplication(${a.id})">Supprimer</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="empty">Erreur de chargement</div>';
+    console.error(e);
+  }
+}
+
+/* ---- HISTORIQUE ---- */
+async function renderHistory() {
+  const box = document.getElementById('admin-history');
+  box.innerHTML = '<div class="loading">Chargement…</div>';
+  try {
+    const { data: history } = await supabase.from('history').select('*').order('created_at', { ascending: false }).limit(100);
+    if (!history || !history.length) {
+      box.innerHTML = '<div class="empty">Aucune activité enregistrée pour le moment.</div>';
+      return;
+    }
+    box.innerHTML = history.map(h => `
+      <div class="history-item">
+        <div><strong>${escapeHtml(h.action)}</strong>${h.details ? ' — ' + escapeHtml(h.details) : ''}</div>
+        <div class="time">${new Date(h.created_at).toLocaleString('fr-FR')}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="empty">Erreur</div>';
+  }
+}
+
+async function clearHistory() {
+  if (!confirm('Vider tout l\'historique ?')) return;
+  await supabase.from('history').delete().neq('id', 0);
+  renderHistory();
+  toast('Historique vidé');
+}
+
+/* ============ UTIL ============ */
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+/* ============ INIT ============ */
+applyBranding();
+showView('public');
+</script>
+
+</body>
+</html>
