@@ -471,9 +471,9 @@
 
 <script>
 /* ============ SUPABASE ============ */
-const SUPABASE_URL = 'https://ofpdfbmmwhitkwblkmas.supabase.co';
+const SUPABASE_URL = 'https://ofpdfbmmwhitkwblkmas.sb.co';
 const SUPABASE_KEY = 'sb_publishable_G1byV9jBrUzEFpSvUBFtIQ_dM5L7xzf';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ============ AUTH ADMIN (simple) ============ */
 const AUTH_KEY = 'rp_auth';
@@ -493,7 +493,7 @@ function toast(msg, isError = false) {
 /* ============ HISTORIQUE ============ */
 async function logAction(action, details = '') {
   try {
-    await supabase.from('history').insert({ action, details });
+    await sb.from('history').insert({ action, details });
   } catch (e) { console.warn('log error', e); }
 }
 
@@ -543,7 +543,7 @@ function switchAdminTab(tab) {
 /* ============ BRANDING ============ */
 async function applyBranding() {
   try {
-    const { data } = await supabase.from('settings').select('*').eq('id', 1).single();
+    const { data } = await sb.from('settings').select('*').eq('id', 1).single();
     if (!data) return;
     const color = data.color || '#3b82f6';
     document.documentElement.style.setProperty('--primary', color);
@@ -582,7 +582,7 @@ function shadeColor(color, percent) {
 
 async function loadSettingsForm() {
   try {
-    const { data } = await supabase.from('settings').select('*').eq('id', 1).single();
+    const { data } = await sb.from('settings').select('*').eq('id', 1).single();
     if (!data) return;
     document.getElementById('set-company').value = data.company || '';
     document.getElementById('set-welcome').value = data.welcome || '';
@@ -626,7 +626,7 @@ async function removeLogo() {
   pendingLogo = null;
   document.getElementById('set-logo').value = '';
   document.getElementById('logo-preview-box').classList.add('hidden');
-  await supabase.from('settings').update({ logo: null }).eq('id', 1);
+  await sb.from('settings').update({ logo: null }).eq('id', 1);
   applyBranding();
   toast('Logo supprimé');
 }
@@ -640,7 +640,7 @@ async function saveSettings(e) {
   };
   if (pendingLogo !== null) payload.logo = pendingLogo;
 
-  const { error } = await supabase.from('settings').upsert({ id: 1, ...payload });
+  const { error } = await sb.from('settings').upsert({ id: 1, ...payload });
   if (error) { toast('Erreur : ' + error.message, true); return; }
   pendingLogo = null;
   applyBranding();
@@ -653,7 +653,7 @@ async function renderPublicOffers() {
   const container = document.getElementById('public-offers');
   container.innerHTML = '<div class="loading">Chargement des offres…</div>';
   try {
-    const { data: offers, error } = await supabase.from('offers').select('*').order('created_at', { ascending: false });
+    const { data: offers, error } = await sb.from('offers').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     if (!offers || !offers.length) {
       container.innerHTML = '<div class="card empty">Aucune offre disponible pour le moment.</div>';
@@ -677,7 +677,7 @@ async function renderPublicOffers() {
 let currentOfferId = null;
 async function openApply(id) {
   try {
-    const { data: offer } = await supabase.from('offers').select('*').eq('id', id).single();
+    const { data: offer } = await sb.from('offers').select('*').eq('id', id).single();
     if (!offer) { toast('Offre introuvable', true); return; }
     currentOfferId = id;
     document.getElementById('apply-title').textContent = 'Postuler : ' + offer.title;
@@ -733,7 +733,7 @@ async function submitApplication(e) {
       });
     }
 
-    const { error } = await supabase.from('applications').insert({
+    const { error } = await sb.from('applications').insert({
       offer_id: currentOfferId,
       offer_title: document.getElementById('app-position').value,
       name,
@@ -782,8 +782,8 @@ function adminLogout() {
 async function renderAdminStats() {
   try {
     const [{ count: offersCount }, { data: apps }] = await Promise.all([
-      supabase.from('offers').select('*', { count: 'exact', head: true }),
-      supabase.from('applications').select('status')
+      sb.from('offers').select('*', { count: 'exact', head: true }),
+      sb.from('applications').select('status')
     ]);
     const byStatus = {};
     (apps || []).forEach(a => { byStatus[a.status] = (byStatus[a.status] || 0) + 1; });
@@ -817,12 +817,12 @@ async function saveOffer(e) {
   try {
     if (editId) {
       payload.updated_at = new Date().toISOString();
-      const { error } = await supabase.from('offers').update(payload).eq('id', editId);
+      const { error } = await sb.from('offers').update(payload).eq('id', editId);
       if (error) throw error;
       logAction('Offre modifiée', title);
       toast('✅ Offre mise à jour');
     } else {
-      const { error } = await supabase.from('offers').insert(payload);
+      const { error } = await sb.from('offers').insert(payload);
       if (error) throw error;
       logAction('Offre publiée', title);
       toast('✅ Offre publiée !');
@@ -836,7 +836,7 @@ async function saveOffer(e) {
 }
 
 async function editOffer(id) {
-  const { data: o } = await supabase.from('offers').select('*').eq('id', id).single();
+  const { data: o } = await sb.from('offers').select('*').eq('id', id).single();
   if (!o) return;
   document.getElementById('offer-edit-id').value = o.id;
   document.getElementById('offer-title').value = o.title;
@@ -860,8 +860,8 @@ function cancelEditOffer() {
 
 async function deleteOffer(id) {
   if (!confirm('Supprimer cette offre ?')) return;
-  const { data: o } = await supabase.from('offers').select('title').eq('id', id).single();
-  const { error } = await supabase.from('offers').delete().eq('id', id);
+  const { data: o } = await sb.from('offers').select('title').eq('id', id).single();
+  const { error } = await sb.from('offers').delete().eq('id', id);
   if (error) { toast('Erreur', true); return; }
   if (o) logAction('Offre supprimée', o.title);
   renderAdminOffers();
@@ -873,7 +873,7 @@ async function renderAdminOffers() {
   const box = document.getElementById('admin-offers');
   box.innerHTML = '<div class="loading">Chargement…</div>';
   try {
-    const { data: offers } = await supabase.from('offers').select('*').order('created_at', { ascending: false });
+    const { data: offers } = await sb.from('offers').select('*').order('created_at', { ascending: false });
     if (!offers || !offers.length) {
       box.innerHTML = '<div class="empty">Aucune offre publiée.</div>';
       return;
@@ -904,7 +904,7 @@ async function renderAdminOffers() {
 
 /* ---- CANDIDATURES ---- */
 async function populateOfferFilter() {
-  const { data: apps } = await supabase.from('applications').select('offer_title');
+  const { data: apps } = await sb.from('applications').select('offer_title');
   const titles = [...new Set((apps || []).map(a => a.offer_title).filter(Boolean))];
   const sel = document.getElementById('filter-app-offer');
   const current = sel.value;
@@ -914,8 +914,8 @@ async function populateOfferFilter() {
 }
 
 async function updateStatus(appId, status) {
-  const { data: a } = await supabase.from('applications').select('name, status').eq('id', appId).single();
-  const { error } = await supabase.from('applications').update({ status }).eq('id', appId);
+  const { data: a } = await sb.from('applications').select('name, status').eq('id', appId).single();
+  const { error } = await sb.from('applications').update({ status }).eq('id', appId);
   if (error) { toast('Erreur', true); return; }
   if (a) logAction('Statut modifié', `${a.name} : ${STATUS_LABELS[a.status] || a.status} → ${STATUS_LABELS[status]}`);
   toast('Statut mis à jour : ' + STATUS_LABELS[status]);
@@ -925,8 +925,8 @@ async function updateStatus(appId, status) {
 
 async function deleteApplication(id) {
   if (!confirm('Supprimer cette candidature ?')) return;
-  const { data: a } = await supabase.from('applications').select('name, offer_title').eq('id', id).single();
-  const { error } = await supabase.from('applications').delete().eq('id', id);
+  const { data: a } = await sb.from('applications').select('name, offer_title').eq('id', id).single();
+  const { error } = await sb.from('applications').delete().eq('id', id);
   if (error) { toast('Erreur', true); return; }
   if (a) logAction('Candidature supprimée', `${a.name} (${a.offer_title})`);
   renderAdminApps();
@@ -936,7 +936,7 @@ async function deleteApplication(id) {
 
 let currentNotesAppId = null;
 async function openNotes(appId) {
-  const { data: a } = await supabase.from('applications').select('*').eq('id', appId).single();
+  const { data: a } = await sb.from('applications').select('*').eq('id', appId).single();
   if (!a) return;
   currentNotesAppId = appId;
   document.getElementById('modal-app-name').textContent = a.name;
@@ -947,9 +947,9 @@ async function openNotes(appId) {
 
 async function saveAppNotes() {
   const notes = document.getElementById('modal-app-notes').value.trim();
-  const { error } = await supabase.from('applications').update({ notes }).eq('id', currentNotesAppId);
+  const { error } = await sb.from('applications').update({ notes }).eq('id', currentNotesAppId);
   if (error) { toast('Erreur', true); return; }
-  const { data: a } = await supabase.from('applications').select('name').eq('id', currentNotesAppId).single();
+  const { data: a } = await sb.from('applications').select('name').eq('id', currentNotesAppId).single();
   if (a) logAction('Notes mises à jour', a.name);
   toast('Notes enregistrées');
   renderAdminApps();
@@ -973,7 +973,7 @@ async function renderAdminApps() {
   const box = document.getElementById('admin-applications');
   box.innerHTML = '<div class="loading">Chargement…</div>';
   try {
-    let query = supabase.from('applications').select('*').order('created_at', { ascending: false });
+    let query = sb.from('applications').select('*').order('created_at', { ascending: false });
     const { data: apps, error } = await query;
     if (error) throw error;
 
@@ -1048,7 +1048,7 @@ async function renderHistory() {
   const box = document.getElementById('admin-history');
   box.innerHTML = '<div class="loading">Chargement…</div>';
   try {
-    const { data: history } = await supabase.from('history').select('*').order('created_at', { ascending: false }).limit(100);
+    const { data: history } = await sb.from('history').select('*').order('created_at', { ascending: false }).limit(100);
     if (!history || !history.length) {
       box.innerHTML = '<div class="empty">Aucune activité enregistrée pour le moment.</div>';
       return;
@@ -1066,7 +1066,7 @@ async function renderHistory() {
 
 async function clearHistory() {
   if (!confirm('Vider tout l\'historique ?')) return;
-  await supabase.from('history').delete().neq('id', 0);
+  await sb.from('history').delete().neq('id', 0);
   renderHistory();
   toast('Historique vidé');
 }
