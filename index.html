@@ -254,7 +254,7 @@
   </div>
   <nav>
     <button id="nav-public" class="active" onclick="showView('public')">Offres publiques</button>
-    <button id="nav-admin" onclick="showView('admin')">🔒 Back-office RH</button>
+    <button id="nav-admin" class="hidden" onclick="showView('admin')">🔒 Back-office RH</button>
   </nav>
 </header>
 
@@ -454,6 +454,10 @@
 
 </main>
 
+<footer style="text-align:center; padding:2rem 1rem 1rem; font-size:0.75rem; color:#94a3b8;">
+  <a href="#admin" onclick="showView('admin'); return false;" style="color:#94a3b8; text-decoration:none;">Espace RH</a>
+</footer>
+
 <div id="modal-app" class="modal-overlay hidden">
   <div class="modal">
     <h3>📝 Notes RH — <span id="modal-app-name"></span></h3>
@@ -507,7 +511,14 @@ function showView(view) {
   if (target) target.classList.remove('hidden');
 
   document.getElementById('nav-public').classList.toggle('active', view === 'public' || view === 'apply');
-  document.getElementById('nav-admin').classList.toggle('active', view === 'admin');
+  const navAdmin = document.getElementById('nav-admin');
+  navAdmin.classList.toggle('active', view === 'admin');
+  // Afficher le bouton admin seulement si connecté
+  if (isLoggedIn()) {
+    navAdmin.classList.remove('hidden');
+  } else {
+    navAdmin.classList.add('hidden');
+  }
 
   applyBranding();
   if (view === 'public') renderPublicOffers();
@@ -776,7 +787,7 @@ function adminLogin() {
 
 function adminLogout() {
   setLoggedIn(false);
-  showView('admin');
+  showView('public');
 }
 
 async function renderAdminStats() {
@@ -1080,7 +1091,12 @@ function escapeHtml(str) {
 
 /* ============ INIT ============ */
 applyBranding();
-showView('public');
+// Accès admin secret via #admin
+if (window.location.hash === '#admin' || isLoggedIn()) {
+  showView('admin');
+} else {
+  showView('public');
+}
 </script>
 
 </body>
